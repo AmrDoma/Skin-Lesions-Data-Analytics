@@ -5,6 +5,7 @@ from database import get_db, engine, Base
 import models
 import schemas
 import auth
+import os
 from services import ChatbotService, CloudinaryService, classify_base64_image
 
 Base.metadata.create_all(bind=engine)
@@ -85,32 +86,36 @@ def chat(request: schemas.ChatRequest, db: Session = Depends(get_db), current_us
 
 @app.post("/api/upload-image/", status_code=201)
 def upload_image(request: schemas.ImageUploadRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    upload_result = CloudinaryService.upload_base64_image(request.image)
-    if upload_result['success']:
-        image = models.Image(media_link=upload_result['url'], user_id=current_user.id)
-        
-        result = classify_base64_image(request.image)
-        class_names = ["AKIEC", "BCC", "BKL", "DF", "MEL", "NV", "VASC"]
-        probs = result.get("classes", [])
-        prob_map = dict(zip(class_names, probs)) if probs else {}
-        top_idx = max(range(len(probs)), key=lambda i: probs[i]) if probs else None
-        predicted = class_names[top_idx] if top_idx is not None else None
-        
-        image.predicted_class = predicted
-        image.probabilities = prob_map
-        db.add(image)
-        db.commit()
-        db.refresh(image)
-        
-        return {
-            "id": image.id,
-            "media_link": image.media_link,
-            "uploaded_at": image.uploaded_at,
-            "predicted_class": image.predicted_class,
-            "probabilities": image.probabilities
-        }
-    else:
-        raise HTTPException(status_code=500, detail={"error": "Failed to upload image to Cloudinary", "details": upload_result.get('error', 'Unknown error')})
+    # First, run classification locally
+    result = classify_base64_image(request.image)
+    class_names = ["AKIEC", "BCC", "BKL", "DF", "MEL", "NV", "VASC"]
+    probs = result.get("classes", [])
+    prob_map = dict(zip(class_names, probs)) if probs else {}
+    top_idx = max(range(len(probs)), key=lambda i: probs[i]) if probs else None
+    predicted = class_names[top_idx] if top_idx is not None else None
+
+    # Attempt Cloudinary upload only if API key is configured
+    cloud_api_key = os.getenv('CLOUDINARY_API_KEY', 'your_api_key')
+    media_link = ""
+    if cloud_api_key and cloud_api_key != 'your_api_key':
+        upload_result = CloudinaryService.upload_base64_image(request.image)
+        if upload_result.get('success'):
+            media_link = upload_result.get('url', "")
+
+    image = models.Image(media_link=media_link, user_id=current_user.id)
+    image.predicted_class = predicted
+    image.probabilities = prob_map
+    db.add(image)
+    db.commit()
+    db.refresh(image)
+
+    return {
+        "id": image.id,
+        "media_link": image.media_link,
+        "uploaded_at": image.uploaded_at,
+        "predicted_class": image.predicted_class,
+        "probabilities": image.probabilities
+    }
 
 
 @app.get("/api/my-images/", response_model=list[schemas.ImageResponse])

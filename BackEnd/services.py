@@ -108,23 +108,28 @@ class CloudinaryService:
                 "error": str(e)
             }
 
-MODEL_PATH = Path(__file__).parent / "model" / "full_skin_cancer_model.h5"
+MODEL_PATH = Path(__file__).parent / "model" / "pretrained_mobilenetv2.h5"
 
 try:
     from tensorflow.keras.models import load_model
+    from tensorflow.keras.applications.mobilenet_v2 import preprocess_input as mobilenet_preprocess
     model = load_model(MODEL_PATH)
+    model_preprocessor = mobilenet_preprocess
 except Exception as e:
     logger.error(f"Failed to load model from {MODEL_PATH}: {e}")
     model = None
+    model_preprocessor = None
 
 def classify_base64_image(b64: str) -> dict:
-    if not model:
+    if not model or not model_preprocessor:
         return {"classes": []}
     try:
         data = base64.b64decode(b64.split(",",1)[-1])
-        img = Image.open(io.BytesIO(data)).resize((224,224))
-        arr = np.array(img) / 255.0
-        preds = model.predict(arr[np.newaxis,...])[0]
+        img = Image.open(io.BytesIO(data)).convert("RGB").resize((224, 224))
+        arr = np.array(img)
+        # Use MobileNetV2 preprocessing (normalizes to [-1, 1])
+        arr = model_preprocessor(arr)
+        preds = model.predict(arr[np.newaxis, ...], verbose=0)[0]
         return {"classes": preds.tolist()}
     except Exception as e:
         logger.error(f"Classification error: {e}")
