@@ -12,9 +12,9 @@ export default function Dashboard() {
   const [result, setResult] = useState<any>(null);
   const token =
     sessionStorage.getItem("token") || localStorage.getItem("token");
-  // if (!token) {
-  //   window.location.href = "/signin";
-  // }
+  if (!token) {
+    window.location.href = "/signin";
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
