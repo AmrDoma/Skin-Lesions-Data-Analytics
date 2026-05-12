@@ -9,16 +9,16 @@ import numpy as np
 from PIL import Image
 from dotenv import load_dotenv
 from pathlib import Path
-from together import Together
 import cloudinary
 import cloudinary.uploader
+import cv2
+
 
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-client = Together()
 
 cloudinary.config(
     cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME', 'your_cloud_name'),
@@ -26,63 +26,6 @@ cloudinary.config(
     api_secret=os.getenv('CLOUDINARY_API_SECRET', 'your_api_secret'),
     secure=True
 )
-
-class ChatbotService:
-    @staticmethod
-    def get_ai_response(chat_history):      
-        try:
-            formatted_chat_history = []
-            
-            for message in chat_history:
-                if "text" in message and "sender_type" in message:
-                    if message["sender_type"] == "user":
-                        role = "user"
-                    elif message["sender_type"] == "ai":
-                        role = "system"
-                    else:
-                        role = "system"
-                    
-                    formatted_chat_history.append({
-                        "role": role,
-                        "content": message["text"]
-                    })
-                elif "content" in message and "role" in message:
-                    if message["role"] == "assistant":
-                        formatted_chat_history.append({
-                            "role": "system",
-                            "content": message["content"]
-                        })
-                    else:
-                        formatted_chat_history.append(message)
-                else:
-                    logger.warning(f"Unexpected message format: {message}")
-                    continue
-                    
-            response = client.chat.completions.create(
-                model="meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-                messages = [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a helpful, respectful and honest medical assistant. You are a clinical decision support system designed to aid in doctor decisions. "
-                            "Always answer as helpfully as possible, while being safe. "
-                            "Your answers should not include any harmful, unethical, racist, sexist, toxic, dangerous, or illegal content. "
-                            "Please ensure that your responses are socially unbiased and positive in nature. If a question does not make any sense, or is not factually coherent, explain why instead of answering something not correct. "
-                            "If you don’t know the answer to a question, please don’t share false information."
-                        ),
-                    },
-                    *formatted_chat_history,
-                ]
-            )
-            return response.choices[0].message.content
-       
-        except requests.exceptions.HTTPError as http_err:
-            if hasattr(http_err, 'response') and http_err.response.status_code == 429:
-                return "The service is currently experiencing high demand. Please try again later."
-            return "I'm having trouble connecting to the AI service. Please try again later."
-        except Exception as e:
-            return "I'm sorry, I'm having trouble processing your request at the moment. Please try again later."
-
 class CloudinaryService:
     @staticmethod
     def upload_base64_image(base64_data):
@@ -108,11 +51,11 @@ class CloudinaryService:
                 "error": str(e)
             }
 
-MODEL_PATH = Path(__file__).parent / "model" / "full_skin_cancer_model.h5"
+MODEL_PATH = Path(__file__).parent / "model" / "skin_lesion_model.onnx"
 
 try:
-    from tensorflow.keras.models import load_model
-    model = load_model(MODEL_PATH)
+    model = cv2.dnn.readNetFromONNX(str(MODEL_PATH))
+    logger.info("Successfully loaded ONNX model using OpenCV")
 except Exception as e:
     logger.error(f"Failed to load model from {MODEL_PATH}: {e}")
     model = None
@@ -122,10 +65,20 @@ def classify_base64_image(b64: str) -> dict:
         return {"classes": []}
     try:
         data = base64.b64decode(b64.split(",",1)[-1])
-        img = Image.open(io.BytesIO(data)).resize((224,224))
-        arr = np.array(img) / 255.0
-        preds = model.predict(arr[np.newaxis,...])[0]
-        return {"classes": preds.tolist()}
+        # Resize to match the actual model input (width=100, height=75)
+        img = Image.open(io.BytesIO(data)).convert('RGB').resize((100, 75))
+        
+        # Preprocess exactly as the original model expected
+        arr = np.array(img, dtype=np.float32) / 255.0
+        
+        # Add batch dimension: (1, 75, 100, 3)
+        input_tensor = arr[np.newaxis, ...]
+        
+        # Run inference using OpenCV
+        model.setInput(input_tensor)
+        preds = model.forward()
+        
+        return {"classes": preds[0].tolist()}
     except Exception as e:
         logger.error(f"Classification error: {e}")
         return {"classes": []}

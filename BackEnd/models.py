@@ -12,7 +12,6 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
 
-    messages = relationship("Message", back_populates="user", cascade="all, delete-orphan")
     images = relationship("Image", back_populates="user", cascade="all, delete-orphan")
     token = relationship("Token", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
@@ -26,17 +25,6 @@ class Token(Base):
 
     user = relationship("User", back_populates="token")
 
-
-class Message(Base):
-    __tablename__ = "messages"
-
-    id = Column(Integer, primary_key=True, index=True)
-    text = Column(String)
-    timestamp = Column(DateTime, default=datetime.utcnow)
-    sender_type = Column(String, default='user') # 'user' or 'ai'
-    user_id = Column(Integer, ForeignKey("users.id"))
-
-    user = relationship("User", back_populates="messages")
 
 
 class Image(Base):

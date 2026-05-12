@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { Upload, History, LogOut } from "lucide-react";
-import { classifyImage } from "../services/imageClassify";
+import { runLocalPrediction } from "../services/localModel";
 import HistoryPage from "../components/History";
+import { classifyImage } from "../services/imageClassify";
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("upload");
@@ -46,7 +47,7 @@ export default function Dashboard() {
       setLoading(true);
       const base64 = await convertToBase64(image);
       console.log("Base64:", base64);
-      const res = await classifyImage(base64);
+      const res = await classifyImage(base64);  
       setResult(res);
     } catch (err) {
       alert("Analysis failed.");

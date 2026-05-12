@@ -12,21 +12,6 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-class ChatMessage(BaseModel):
-    text: str
-    timestamp: datetime
-    sender_type: str
-
-    class Config:
-        from_attributes = True
-
-class ChatRequest(BaseModel):
-    message: str
-
-class ChatResponse(BaseModel):
-    user_message: ChatMessage
-    ai_response: ChatMessage
-
 class ImageUploadRequest(BaseModel):
     image: str
 
@@ -40,5 +25,3 @@ class ImageResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class ChatWithAIRequest(BaseModel):
-    chat_history: List[Dict[str, Any]]

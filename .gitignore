@@ -2,6 +2,6 @@ BackEnd/.env
 BackEnd/venv
 BackEnd/__pycache__
 venv/*
-BackEnd/model/full_skin_cancer_model.h5
+BackEnd/model
 install_requirements.bat
 BackEnd/db.sqlite3

@@ -5,7 +5,7 @@ from database import get_db, engine, Base
 import models
 import schemas
 import auth
-from services import ChatbotService, CloudinaryService, classify_base64_image
+from services import CloudinaryService, classify_base64_image
 
 Base.metadata.create_all(bind=engine)
 
@@ -61,26 +61,6 @@ def login(user: schemas.UserLogin, db: Session = Depends(get_db)):
         db.refresh(db_token)
         
     return {"token": db_token.key, "user_id": db_user.id, "email": db_user.email}
-
-
-@app.post("/api/chat/", response_model=schemas.ChatResponse)
-def chat(request: schemas.ChatRequest, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    user_msg = models.Message(text=request.message, sender_type='user', user_id=current_user.id)
-    db.add(user_msg)
-    db.commit()
-    db.refresh(user_msg)
-    
-    past_messages = db.query(models.Message).filter(models.Message.user_id == current_user.id).order_by(models.Message.timestamp).all()
-    chat_history = [{"text": m.text, "sender_type": m.sender_type} for m in past_messages]
-    
-    ai_text = ChatbotService.get_ai_response(chat_history)
-    
-    ai_msg = models.Message(text=ai_text, sender_type='ai', user_id=current_user.id)
-    db.add(ai_msg)
-    db.commit()
-    db.refresh(ai_msg)
-    
-    return {"user_message": user_msg, "ai_response": ai_msg}
 
 
 @app.post("/api/upload-image/", status_code=201)

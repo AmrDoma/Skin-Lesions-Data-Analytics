@@ -1,6 +1,5 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import "../index.css";
-import ChatBot from "./ChatBot";
 import { Toaster } from "react-hot-toast";
 
 type RouteConfig = {
@@ -64,7 +63,6 @@ function Layout({ routes }: LayoutProps) {
       <footer className="bg-foreground text-center p-4 text-sm">
         <p>© {new Date().getFullYear()} Skin Lesions CDSS</p>
       </footer>
-      <ChatBot />
     </div>
   );
 }
