@@ -67,7 +67,6 @@ The `.env` file should define the following variables:
 Backend ENV:
 
 ```env
-TOGETHER_API_KEY = <api-key>
 CLOUDINARY_CLOUD_NAME = <api-key>
 CLOUDINARY_API_KEY = <api-key>
 CLOUDINARY_API_SECRET = <api-key>
